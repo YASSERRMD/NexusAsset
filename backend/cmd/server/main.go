@@ -11,7 +11,11 @@ import (
 
 	"nexusasset/backend/db/seed"
 	authpkg "nexusasset/backend/internal/auth"
+	catdb "nexusasset/backend/internal/catalog/dbinstances"
+	catintegrations "nexusasset/backend/internal/catalog/integrations"
 	catserver "nexusasset/backend/internal/catalog/server"
+	catsoftware "nexusasset/backend/internal/catalog/software"
+	catvendor "nexusasset/backend/internal/catalog/vendor"
 	"nexusasset/backend/internal/config"
 	dbpkg "nexusasset/backend/internal/database"
 	"nexusasset/backend/internal/logger"
@@ -90,6 +94,20 @@ func main() {
 	serverSvc := catserver.NewService(serverRepo)
 	serverHandler := catserver.NewHandler(serverSvc)
 
+	// Software catalog — Phase 3
+	softwareRepo := catsoftware.NewRepository(pool)
+	softwareSvc := catsoftware.NewService(softwareRepo)
+	softwareHandler := catsoftware.NewHandler(softwareSvc)
+
+	// Vendor catalog — Phase 3
+	vendorHandler := catvendor.NewHandler(pool)
+
+	// Database instances — Phase 3
+	dbHandler := catdb.NewHandler(pool)
+
+	// Integrations — Phase 3
+	integrationsHandler := catintegrations.NewHandler(pool)
+
 	// Lookups
 	lookupHandler := lookup.NewHandler(pool)
 
@@ -163,6 +181,59 @@ func main() {
 				r.Get("/{id}", serverHandler.GetByID)
 				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", serverHandler.Update)
 				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", serverHandler.Delete)
+			})
+
+			// Software catalog — read: all; write: admin+contributor; delete: admin
+			r.Route("/software", func(r chi.Router) {
+				r.Get("/", softwareHandler.List)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/", softwareHandler.Create)
+				r.Get("/{id}", softwareHandler.GetByID)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", softwareHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", softwareHandler.Delete)
+				// Sub-resources
+				r.Get("/{id}/responsibilities", softwareHandler.ListResponsibilities)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/{id}/responsibilities", softwareHandler.AddResponsibility)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}/responsibilities/{rid}", softwareHandler.DeleteResponsibility)
+				r.Get("/{id}/repositories", softwareHandler.ListRepos)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/{id}/repositories", softwareHandler.AddRepo)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}/repositories/{rid}", softwareHandler.DeleteRepo)
+				r.Get("/{id}/deployments", softwareHandler.ListDeployments)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/{id}/deployments", softwareHandler.AddDeployment)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Patch("/{id}/deployments/{did}/health", softwareHandler.UpdateDeploymentHealth)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}/deployments/{did}", softwareHandler.DeleteDeployment)
+				r.Get("/{id}/tech-stack", softwareHandler.ListTechStack)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/{id}/tech-stack", softwareHandler.AddTechStack)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}/tech-stack/{tid}", softwareHandler.DeleteTechStack)
+				r.Get("/{id}/database-links", softwareHandler.ListDatabaseLinks)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/{id}/database-links", softwareHandler.AddDatabaseLink)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}/database-links/{lid}", softwareHandler.DeleteDatabaseLink)
+			})
+
+			// Vendors — read: all; write: admin+contributor; delete: admin
+			r.Route("/vendors", func(r chi.Router) {
+				r.Get("/", vendorHandler.List)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/", vendorHandler.Create)
+				r.Get("/{id}", vendorHandler.GetByID)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", vendorHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", vendorHandler.Delete)
+			})
+
+			// Database instances — read: all; write: admin+contributor; delete: admin
+			r.Route("/databases", func(r chi.Router) {
+				r.Get("/", dbHandler.List)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/", dbHandler.Create)
+				r.Get("/{id}", dbHandler.GetByID)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", dbHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", dbHandler.Delete)
+			})
+
+			// Integrations — read: all; write: admin+contributor; delete: admin
+			r.Route("/integrations", func(r chi.Router) {
+				r.Get("/", integrationsHandler.List)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/", integrationsHandler.Create)
+				r.Get("/{id}", integrationsHandler.GetByID)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", integrationsHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", integrationsHandler.Delete)
 			})
 
 			// Lookup tables — GET: all; POST/PUT/PATCH: admin only
