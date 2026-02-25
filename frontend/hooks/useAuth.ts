@@ -4,10 +4,10 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import apiClient from "@/lib/api";
-import type { Role } from "@/types";
+import type { Role, User } from "@/types";
 
 export interface UseAuthReturn {
-    user: ReturnType<typeof useAuthStore>["user"];
+    user: User | null;
     role: Role | null;
     isAdmin: boolean;
     isContributor: boolean;
