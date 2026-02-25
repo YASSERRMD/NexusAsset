@@ -148,19 +148,17 @@ export interface Server {
 export interface Vendor {
     id: string;
     name: string;
-    country?: string;
-    vendor_type?: string;
+    display_name: string;
     website?: string;
-    primary_contact_name?: string;
-    primary_contact_email?: string;
-    primary_contact_phone?: string;
-    support_email?: string;
-    support_phone?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    address?: string;
+    region?: string;
+    is_active: boolean;
     notes?: string;
-    tags?: string[];
-    status: string;
     created_at: string;
     updated_at: string;
+    deleted_at?: string;
 }
 
 export interface VendorContract {
@@ -203,57 +201,41 @@ export interface Software {
 export interface DatabaseInstance {
     id: string;
     name: string;
-    db_type: string;
-    version?: string;
-    host_server_id?: string;
-    environment_id?: string;
+    engine: string;
+    engine_version?: string;
+    hostname?: string;
     port?: number;
+    database_name?: string;
+    environment_id?: string;
+    server_id?: string;
     size_gb?: number;
-    owner_team_id?: string;
-    classification?: string;
-    backup_policy?: string;
     status: string;
+    is_managed: boolean;
+    cloud_provider?: string;
     notes?: string;
     created_at: string;
     updated_at: string;
+    deleted_at?: string;
 }
 
 // Integration
-export interface IntegrationExposed {
+// Integration
+export interface Integration {
     id: string;
-    software_id: string;
     name: string;
     description?: string;
-    protocol: string;
-    endpoint_url?: string;
-    port?: number;
-    auth_method?: string;
-    version?: string;
-    spec_url?: string;
-    sla_uptime_percent?: number;
+    source_software_id?: string;
+    target_software_id?: string;
+    integration_kind: string;
+    protocol?: string;
+    data_format?: string;
+    frequency?: string;
+    status: string;
     owner_team_id?: string;
-    status: string;
-    deprecation_date?: string;
     notes?: string;
     created_at: string;
     updated_at: string;
-}
-
-export interface IntegrationConsumed {
-    id: string;
-    software_id: string;
-    name: string;
-    description?: string;
-    protocol: string;
-    vendor_id?: string;
-    endpoint_url?: string;
-    auth_method?: string;
-    dependency_criticality?: string;
-    fallback_strategy?: string;
-    status: string;
-    notes?: string;
-    created_at: string;
-    updated_at: string;
+    deleted_at?: string;
 }
 
 // Audit log
