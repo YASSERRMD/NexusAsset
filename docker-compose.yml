@@ -13,10 +13,64 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexus -d nexusasset"]
+      test: [ "CMD-SHELL", "pg_isready -U nexus -d nexusasset" ]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
+
+  db-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexusasset_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
+    command: [ "./migrate", "up" ]
+
+  db-seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexusasset_seed
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
+    command: [ "./seeder" ]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexusasset_api
+    depends_on:
+      db-seed:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=production
+      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
+      - JWT_SECRET=supersecretjwtkeythatshouldbechangedinproduction123!
+      - LOG_LEVEL=info
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+    command: [ "./main" ]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexusasset_web
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 
 volumes:
   postgres_data:
