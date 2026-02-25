@@ -11,9 +11,12 @@ import (
 
 	"nexusasset/backend/db/seed"
 	authpkg "nexusasset/backend/internal/auth"
+	catserver "nexusasset/backend/internal/catalog/server"
 	"nexusasset/backend/internal/config"
 	dbpkg "nexusasset/backend/internal/database"
 	"nexusasset/backend/internal/logger"
+	"nexusasset/backend/internal/lookup"
+	"nexusasset/backend/internal/people"
 	"nexusasset/backend/internal/users"
 	appmiddleware "nexusasset/backend/pkg/middleware"
 
@@ -73,6 +76,23 @@ func main() {
 	usersSvc := users.NewService(usersRepo)
 	usersHandler := users.NewHandler(usersSvc)
 
+	// People
+	personRepo := people.NewPersonRepository(pool)
+	personSvc := people.NewPersonService(personRepo)
+	personHandler := people.NewPersonHandler(personSvc)
+
+	teamRepo := people.NewTeamRepository(pool)
+	teamSvc := people.NewTeamService(teamRepo)
+	teamHandler := people.NewTeamHandler(teamSvc)
+
+	// Server catalog
+	serverRepo := catserver.NewRepository(pool)
+	serverSvc := catserver.NewService(serverRepo)
+	serverHandler := catserver.NewHandler(serverSvc)
+
+	// Lookups
+	lookupHandler := lookup.NewHandler(pool)
+
 	// 6. Build chi router
 	r := chi.NewRouter()
 
@@ -115,6 +135,42 @@ func main() {
 				r.Put("/{id}", usersHandler.Update)
 				r.Delete("/{id}", usersHandler.Delete)
 				r.Patch("/{id}/role", usersHandler.UpdateRole)
+			})
+
+			// People — admin + contributor
+			r.Route("/persons", func(r chi.Router) {
+				r.Use(jwtSvc.RequireRole("admin", "contributor"))
+				r.Get("/", personHandler.List)
+				r.Post("/", personHandler.Create)
+				r.Get("/{id}", personHandler.GetByID)
+				r.Put("/{id}", personHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", personHandler.Delete)
+			})
+
+			r.Route("/teams", func(r chi.Router) {
+				r.Use(jwtSvc.RequireRole("admin", "contributor"))
+				r.Get("/", teamHandler.List)
+				r.Post("/", teamHandler.Create)
+				r.Get("/{id}", teamHandler.GetByID)
+				r.Put("/{id}", teamHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", teamHandler.Delete)
+			})
+
+			// Servers — read: all; write: admin+contributor; delete: admin
+			r.Route("/servers", func(r chi.Router) {
+				r.Get("/", serverHandler.List)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Post("/", serverHandler.Create)
+				r.Get("/{id}", serverHandler.GetByID)
+				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", serverHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", serverHandler.Delete)
+			})
+
+			// Lookup tables — GET: all; POST/PUT/PATCH: admin only
+			r.Route("/lookups/{table}", func(r chi.Router) {
+				r.Get("/", lookupHandler.List)
+				r.With(jwtSvc.RequireRole("admin")).Post("/", lookupHandler.Create)
+				r.With(jwtSvc.RequireRole("admin")).Put("/{id}", lookupHandler.Update)
+				r.With(jwtSvc.RequireRole("admin")).Patch("/{id}/active", lookupHandler.PatchActive)
 			})
 		})
 	})
