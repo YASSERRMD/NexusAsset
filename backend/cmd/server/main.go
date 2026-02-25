@@ -10,13 +10,16 @@ import (
 	"time"
 
 	"nexusasset/backend/db/seed"
+	"nexusasset/backend/internal/audit"
 	authpkg "nexusasset/backend/internal/auth"
 	catdb "nexusasset/backend/internal/catalog/dbinstances"
 	catintegrations "nexusasset/backend/internal/catalog/integrations"
 	catserver "nexusasset/backend/internal/catalog/server"
 	catsoftware "nexusasset/backend/internal/catalog/software"
 	catvendor "nexusasset/backend/internal/catalog/vendor"
+	"nexusasset/backend/internal/compliance"
 	"nexusasset/backend/internal/config"
+	"nexusasset/backend/internal/dashboard"
 	dbpkg "nexusasset/backend/internal/database"
 	"nexusasset/backend/internal/logger"
 	"nexusasset/backend/internal/lookup"
@@ -111,6 +114,15 @@ func main() {
 	// Lookups
 	lookupHandler := lookup.NewHandler(pool)
 
+	// Dashboard — Phase 6
+	dashboardHandler := dashboard.NewHandler(pool)
+
+	// Audit — Phase 6
+	auditHandler := audit.NewHandler(pool)
+
+	// Compliance — Phase 6
+	complianceHandler := compliance.NewHandler(pool)
+
 	// 6. Build chi router
 	r := chi.NewRouter()
 
@@ -140,6 +152,7 @@ func main() {
 		// --- Authenticated routes ---
 		r.Group(func(r chi.Router) {
 			r.Use(jwtSvc.Authenticate)
+			r.Use(audit.AutoLog(auditHandler.Repo()))
 
 			// Auth: me
 			r.Get("/auth/me", authHandler.Me)
@@ -234,6 +247,26 @@ func main() {
 				r.Get("/{id}", integrationsHandler.GetByID)
 				r.With(jwtSvc.RequireRole("admin", "contributor")).Put("/{id}", integrationsHandler.Update)
 				r.With(jwtSvc.RequireRole("admin")).Delete("/{id}", integrationsHandler.Delete)
+			})
+
+			// Dashboard — Phase 6
+			r.Route("/dashboard", func(r chi.Router) {
+				r.Get("/", dashboardHandler.Summary)
+				r.Get("/charts", dashboardHandler.Charts)
+			})
+
+			// Audit Logs — Phase 6
+			r.Route("/audit", func(r chi.Router) {
+				r.Use(jwtSvc.RequireRole("admin"))
+				r.Get("/", auditHandler.List)
+				r.Get("/{entityType}/{entityID}", auditHandler.GetByEntity)
+			})
+
+			// Compliance Reports — Phase 6
+			r.Route("/compliance", func(r chi.Router) {
+				r.Use(jwtSvc.RequireRole("admin", "contributor"))
+				r.Get("/summary", complianceHandler.Summary)
+				r.Get("/export", complianceHandler.Export)
 			})
 
 			// Lookup tables — GET: all; POST/PUT/PATCH: admin only
