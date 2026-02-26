@@ -8,6 +8,9 @@ import { CanAccess } from "@/components/layout/CanAccess";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Network, ArrowRight } from "lucide-react";
 import type { ApiResponse, Integration } from "@/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const STATUS_COLORS: Record<string, string> = {
     active: "bg-emerald-900/40 text-emerald-400",
@@ -29,6 +32,7 @@ export default function IntegrationsPage() {
     const [search, setSearch] = useState("");
     const [kindFilter, setKindFilter] = useState("");
     const [page, setPage] = useState(1);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -46,6 +50,16 @@ export default function IntegrationsPage() {
         onError: () => toast.error("Failed to delete"),
     });
 
+    const createMut = useMutation({
+        mutationFn: (data: Partial<Integration>) => apiClient.post("/integrations", data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["integrations"] });
+            toast.success("Integration created");
+            setIsCreateOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create integration"),
+    });
+
     const items: Integration[] = data?.data ?? [];
     const total = data?.meta?.total ?? 0;
 
@@ -57,13 +71,76 @@ export default function IntegrationsPage() {
                     <p className="text-slate-400 mt-1">{total} integration{total !== 1 ? "s" : ""} registered</p>
                 </div>
                 <CanAccess roles={["admin", "contributor"]}>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                        onClick={() => toast.info("Integration creation form coming soon")}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Integration
-                    </button>
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <DialogTrigger asChild>
+                            <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                <Plus className="h-4 w-4" /> Add Integration
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                            <DialogHeader>
+                                <DialogTitle>New Integration Link</DialogTitle>
+                            </DialogHeader>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.currentTarget);
+                                    createMut.mutate({
+                                        name: fd.get("name") as string,
+                                        description: fd.get("description") as string,
+                                        integration_kind: fd.get("integration_kind") as any,
+                                        protocol: fd.get("protocol") as string,
+                                        source_software_id: (fd.get("source_software_id") as string) || undefined,
+                                        target_software_id: (fd.get("target_software_id") as string) || undefined,
+                                    });
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Integration Name</Label>
+                                    <Input id="name" name="name" required placeholder="User Sync API" className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="description">Description</Label>
+                                    <Input id="description" name="description" className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="integration_kind">Integration Kind</Label>
+                                        <select id="integration_kind" name="integration_kind" className="w-full h-10 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                                            <option value="api">API</option>
+                                            <option value="event">Event (Kafka/MQ)</option>
+                                            <option value="file">File Transfer (SFTP)</option>
+                                            <option value="database">Database Link</option>
+                                            <option value="webhook">Webhook</option>
+                                            <option value="sync">Data Sync</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="protocol">Protocol / Tech</Label>
+                                        <Input id="protocol" name="protocol" placeholder="REST, GraphQL..." className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="source_software_id">Source SW ID (opt)</Label>
+                                        <Input id="source_software_id" name="source_software_id" placeholder="UUID" className="bg-slate-800 border-slate-700 font-mono text-xs" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="target_software_id">Target SW ID (opt)</Label>
+                                        <Input id="target_software_id" name="target_software_id" placeholder="UUID" className="bg-slate-800 border-slate-700 font-mono text-xs" />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={createMut.isPending}
+                                    className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                    {createMut.isPending ? "Creating..." : "Create Integration"}
+                                </button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </CanAccess>
             </div>
 

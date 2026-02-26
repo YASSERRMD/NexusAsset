@@ -9,11 +9,16 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Users, User } from "lucide-react";
 import type { Person, Team } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function PeoplePage() {
     const [tab, setTab] = useState<"persons" | "teams">("persons");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [isPersonOpen, setIsPersonOpen] = useState(false);
+    const [isTeamOpen, setIsTeamOpen] = useState(false);
     const qc = useQueryClient();
 
     const { isAdmin } = useAuth();
@@ -49,6 +54,26 @@ export default function PeoplePage() {
         onError: () => toast.error("Failed to delete team"),
     });
 
+    const createPersonMut = useMutation({
+        mutationFn: personsApi.create,
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["persons"] });
+            toast.success("Person created");
+            setIsPersonOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create person"),
+    });
+
+    const createTeamMut = useMutation({
+        mutationFn: teamsApi.create,
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["teams"] });
+            toast.success("Team created");
+            setIsTeamOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create team"),
+    });
+
     const persons: Person[] = personsQ.data?.data ?? [];
     const teams: Team[] = teamsQ.data?.data ?? [];
     const total = (tab === "persons" ? personsQ.data : teamsQ.data)?.meta?.total ?? 0;
@@ -63,13 +88,104 @@ export default function PeoplePage() {
                     <p className="text-slate-400 mt-1">Manage persons and teams in your organization.</p>
                 </div>
                 <CanAccess roles={["admin", "contributor"]}>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                        onClick={() => toast.info(`Create ${tab === "persons" ? "person" : "team"} form coming in Phase 3`)}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add {tab === "persons" ? "Person" : "Team"}
-                    </button>
+                    {tab === "persons" ? (
+                        <Dialog open={isPersonOpen} onOpenChange={setIsPersonOpen}>
+                            <DialogTrigger asChild>
+                                <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                    <Plus className="h-4 w-4" /> Add Person
+                                </button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                                <DialogHeader>
+                                    <DialogTitle>Create New Person</DialogTitle>
+                                </DialogHeader>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const fd = new FormData(e.currentTarget);
+                                        createPersonMut.mutate({
+                                            full_name: fd.get("full_name") as string,
+                                            email: fd.get("email") as string,
+                                            title: fd.get("title") as string,
+                                            department: fd.get("department") as string,
+                                        });
+                                    }}
+                                    className="space-y-4"
+                                >
+                                    <div className="space-y-2">
+                                        <Label htmlFor="full_name">Full Name</Label>
+                                        <Input id="full_name" name="full_name" required className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email">Email</Label>
+                                        <Input id="email" name="email" type="email" required className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="title">Job Title</Label>
+                                            <Input id="title" name="title" className="bg-slate-800 border-slate-700" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="department">Department</Label>
+                                            <Input id="department" name="department" className="bg-slate-800 border-slate-700" />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={createPersonMut.isPending}
+                                        className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                    >
+                                        {createPersonMut.isPending ? "Creating..." : "Save Person"}
+                                    </button>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    ) : (
+                        <Dialog open={isTeamOpen} onOpenChange={setIsTeamOpen}>
+                            <DialogTrigger asChild>
+                                <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                    <Plus className="h-4 w-4" /> Add Team
+                                </button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                                <DialogHeader>
+                                    <DialogTitle>Create New Team</DialogTitle>
+                                </DialogHeader>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const fd = new FormData(e.currentTarget);
+                                        createTeamMut.mutate({
+                                            name: fd.get("name") as string,
+                                            department: fd.get("department") as string,
+                                            team_email: fd.get("team_email") as string,
+                                        });
+                                    }}
+                                    className="space-y-4"
+                                >
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Team Name</Label>
+                                        <Input id="name" name="name" required className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="department">Department</Label>
+                                        <Input id="department" name="department" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="team_email">Team Email List</Label>
+                                        <Input id="team_email" name="team_email" type="email" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={createTeamMut.isPending}
+                                        className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                    >
+                                        {createTeamMut.isPending ? "Creating..." : "Save Team"}
+                                    </button>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </CanAccess>
             </div>
 
@@ -80,8 +196,8 @@ export default function PeoplePage() {
                         key={t}
                         onClick={() => { setTab(t); setPage(1); setSearch(""); }}
                         className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t
-                                ? "border-indigo-500 text-indigo-400"
-                                : "border-transparent text-slate-500 hover:text-slate-300"
+                            ? "border-indigo-500 text-indigo-400"
+                            : "border-transparent text-slate-500 hover:text-slate-300"
                             }`}
                     >
                         {t === "persons" ? <User className="h-4 w-4" /> : <Users className="h-4 w-4" />}

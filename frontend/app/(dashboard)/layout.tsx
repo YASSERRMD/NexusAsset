@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function DashboardLayout({
     children,
@@ -35,10 +36,11 @@ export default function DashboardLayout({
             <Sidebar />
             <main className="flex-1 overflow-y-auto">
                 {/* Topbar */}
-                <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 backdrop-blur-sm">
+                <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-sm">
                     <div />
-                    <div className="flex items-center gap-3 text-sm text-slate-400">
-                        <span>NexusAsset IT Catalog</span>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <ThemeToggle />
+                        <span className="font-medium text-foreground">NexusAsset IT Catalog</span>
                     </div>
                 </header>
 

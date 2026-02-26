@@ -13,6 +13,9 @@ import {
 import type { ApiResponse, Software } from "@/types";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const CRITICALITY_COLORS: Record<string, string> = {
     critical: "bg-red-900/40 text-red-400 border border-red-900/60",
@@ -36,6 +39,7 @@ export default function SoftwarePage() {
     const [statusFilter, setStatusFilter] = useState("");
     const [criticalityFilter, setCriticalityFilter] = useState("");
     const [page, setPage] = useState(1);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -58,6 +62,16 @@ export default function SoftwarePage() {
         onError: () => toast.error("Failed to delete software"),
     });
 
+    const createMut = useMutation({
+        mutationFn: (data: Partial<Software>) => apiClient.post("/software", data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["software"] });
+            toast.success("Software created");
+            setIsCreateOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create software"),
+    });
+
     const items: Software[] = data?.data ?? [];
     const total = data?.meta?.total ?? 0;
 
@@ -70,13 +84,87 @@ export default function SoftwarePage() {
                     <p className="text-slate-400 mt-1">{total} application{total !== 1 ? "s" : ""} registered</p>
                 </div>
                 <CanAccess roles={["admin", "contributor"]}>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                        onClick={() => toast.info("Software creation form coming soon")}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Software
-                    </button>
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <DialogTrigger asChild>
+                            <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                <Plus className="h-4 w-4" /> Add Software
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                            <DialogHeader>
+                                <DialogTitle>Register New Software</DialogTitle>
+                            </DialogHeader>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.currentTarget);
+                                    createMut.mutate({
+                                        name: fd.get("name") as string,
+                                        display_name: fd.get("display_name") as string,
+                                        description: fd.get("description") as string,
+                                        software_kind: fd.get("software_kind") as "inhouse" | "vendor",
+                                        status: fd.get("status") as any,
+                                        criticality: fd.get("criticality") as any,
+                                        version: fd.get("version") as string,
+                                    });
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">System Name (ID)</Label>
+                                    <Input id="name" name="name" required placeholder="e.g. core-auth-svc" className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="display_name">Display Name</Label>
+                                        <Input id="display_name" name="display_name" placeholder="Core Auth Service" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="version">Version</Label>
+                                        <Input id="version" name="version" placeholder="1.0.0" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="description">Description</Label>
+                                    <Input id="description" name="description" className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="software_kind">Kind</Label>
+                                        <select id="software_kind" name="software_kind" className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                            <option value="inhouse">In-house</option>
+                                            <option value="vendor">Vendor</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="status">Status</Label>
+                                        <select id="status" name="status" className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                            <option value="active">Active</option>
+                                            <option value="in_development">In Development</option>
+                                            <option value="deprecated">Deprecated</option>
+                                            <option value="eol">EOL</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="criticality">Criticality</Label>
+                                        <select id="criticality" name="criticality" className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="critical">Critical</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={createMut.isPending}
+                                    className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                    {createMut.isPending ? "Registering..." : "Register Software"}
+                                </button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </CanAccess>
             </div>
 

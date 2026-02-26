@@ -8,10 +8,14 @@ import { CanAccess } from "@/components/layout/CanAccess";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Store, Globe, Mail, Phone } from "lucide-react";
 import type { ApiResponse, Vendor } from "@/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function VendorsPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -26,6 +30,16 @@ export default function VendorsPage() {
         onError: () => toast.error("Failed to delete"),
     });
 
+    const createMut = useMutation({
+        mutationFn: (data: Partial<Vendor>) => apiClient.post("/vendors", data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["vendors"] });
+            toast.success("Vendor created");
+            setIsCreateOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create vendor"),
+    });
+
     const vendors: Vendor[] = data?.data ?? [];
     const total = data?.meta?.total ?? 0;
 
@@ -37,13 +51,69 @@ export default function VendorsPage() {
                     <p className="text-slate-400 mt-1">{total} vendor{total !== 1 ? "s" : ""} registered</p>
                 </div>
                 <CanAccess roles={["admin", "contributor"]}>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                        onClick={() => toast.info("Vendor creation form coming soon")}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Vendor
-                    </button>
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <DialogTrigger asChild>
+                            <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                <Plus className="h-4 w-4" /> Add Vendor
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                            <DialogHeader>
+                                <DialogTitle>Add New Vendor</DialogTitle>
+                            </DialogHeader>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.currentTarget);
+                                    createMut.mutate({
+                                        name: fd.get("name") as string,
+                                        display_name: fd.get("display_name") as string,
+                                        region: fd.get("region") as string,
+                                        website: fd.get("website") as string,
+                                        contact_email: fd.get("contact_email") as string,
+                                        contact_phone: fd.get("contact_phone") as string,
+                                    });
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Vendor ID (unique)</Label>
+                                    <Input id="name" name="name" required placeholder="e.g. microsoft" className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="display_name">Display Name</Label>
+                                    <Input id="display_name" name="display_name" placeholder="Microsoft Corp" className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="region">Region</Label>
+                                        <Input id="region" name="region" placeholder="US / EMEA" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="website">Website URL</Label>
+                                        <Input id="website" name="website" placeholder="https://..." type="url" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="contact_email">Email</Label>
+                                        <Input id="contact_email" name="contact_email" placeholder="support@..." type="email" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="contact_phone">Phone</Label>
+                                        <Input id="contact_phone" name="contact_phone" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={createMut.isPending}
+                                    className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                    {createMut.isPending ? "Adding..." : "Add Vendor"}
+                                </button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </CanAccess>
             </div>
 

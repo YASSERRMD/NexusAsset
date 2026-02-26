@@ -8,6 +8,9 @@ import { CanAccess } from "@/components/layout/CanAccess";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Database } from "lucide-react";
 import type { ApiResponse, DatabaseInstance } from "@/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const STATUS_COLORS: Record<string, string> = {
     active: "bg-emerald-900/40 text-emerald-400",
@@ -19,6 +22,7 @@ export default function DatabasesPage() {
     const [search, setSearch] = useState("");
     const [engineFilter, setEngineFilter] = useState("");
     const [page, setPage] = useState(1);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -36,6 +40,16 @@ export default function DatabasesPage() {
         onError: () => toast.error("Failed to delete"),
     });
 
+    const createMut = useMutation({
+        mutationFn: (data: Partial<DatabaseInstance>) => apiClient.post("/databases", data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["databases"] });
+            toast.success("Database created");
+            setIsCreateOpen(false);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create database"),
+    });
+
     const items: DatabaseInstance[] = data?.data ?? [];
     const total = data?.meta?.total ?? 0;
 
@@ -47,13 +61,77 @@ export default function DatabasesPage() {
                     <p className="text-slate-400 mt-1">{total} database{total !== 1 ? "s" : ""} registered</p>
                 </div>
                 <CanAccess roles={["admin", "contributor"]}>
-                    <button
-                        className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                        onClick={() => toast.info("Database creation form coming soon")}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add Database
-                    </button>
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <DialogTrigger asChild>
+                            <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                                <Plus className="h-4 w-4" /> Add Database
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                            <DialogHeader>
+                                <DialogTitle>Register Database</DialogTitle>
+                            </DialogHeader>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.currentTarget);
+                                    createMut.mutate({
+                                        name: fd.get("name") as string,
+                                        engine: fd.get("engine") as string,
+                                        database_name: fd.get("database_name") as string,
+                                        hostname: fd.get("hostname") as string,
+                                        port: fd.get("port") ? parseInt(fd.get("port") as string) : undefined,
+                                        cloud_provider: fd.get("cloud_provider") as string,
+                                    });
+                                }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">System Name (ID)</Label>
+                                    <Input id="name" name="name" required placeholder="e.g. prod-user-db" className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="engine">Engine</Label>
+                                        <select id="engine" name="engine" className="w-full h-10 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                                            <option value="PostgreSQL">PostgreSQL</option>
+                                            <option value="MySQL">MySQL</option>
+                                            <option value="MongoDB">MongoDB</option>
+                                            <option value="Redis">Redis</option>
+                                            <option value="Oracle">Oracle</option>
+                                            <option value="MSSQL">MSSQL</option>
+                                            <option value="Elasticsearch">Elasticsearch</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="database_name">DB/Schema Name</Label>
+                                        <Input id="database_name" name="database_name" placeholder="users_schema" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="hostname">Hostname</Label>
+                                        <Input id="hostname" name="hostname" placeholder="db.internal.net" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="port">Port</Label>
+                                        <Input id="port" name="port" type="number" placeholder="5432" className="bg-slate-800 border-slate-700" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="cloud_provider">Cloud / Environment</Label>
+                                    <Input id="cloud_provider" name="cloud_provider" placeholder="AWS / GCP / On-Prem" className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={createMut.isPending}
+                                    className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                                >
+                                    {createMut.isPending ? "Adding..." : "Add Database"}
+                                </button>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </CanAccess>
             </div>
 
