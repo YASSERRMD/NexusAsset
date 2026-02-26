@@ -48,7 +48,10 @@ export default function DatabasesPage() {
             toast.success("Database created");
             setIsCreateOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create database"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create database");
+        },
     });
 
     const updateMut = useMutation({
@@ -58,7 +61,10 @@ export default function DatabasesPage() {
             toast.success("Database updated");
             setEditingDb(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update database"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update database");
+        },
     });
 
     const items: DatabaseInstance[] = data?.data ?? [];

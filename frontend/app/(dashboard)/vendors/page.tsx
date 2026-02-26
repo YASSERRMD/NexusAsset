@@ -38,7 +38,10 @@ export default function VendorsPage() {
             toast.success("Vendor created");
             setIsCreateOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create vendor"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create vendor");
+        },
     });
 
     const updateMut = useMutation({
@@ -48,7 +51,10 @@ export default function VendorsPage() {
             toast.success("Vendor updated");
             setEditingVendor(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update vendor"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update vendor");
+        },
     });
 
     const vendors: Vendor[] = data?.data ?? [];

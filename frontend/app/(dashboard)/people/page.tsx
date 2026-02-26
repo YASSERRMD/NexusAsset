@@ -63,7 +63,10 @@ export default function PeoplePage() {
             toast.success("Person created");
             setIsPersonOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create person"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create person");
+        },
     });
 
     const createTeamMut = useMutation({
@@ -73,7 +76,10 @@ export default function PeoplePage() {
             toast.success("Team created");
             setIsTeamOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create team"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create team");
+        },
     });
 
     const updatePersonMut = useMutation({
@@ -83,7 +89,10 @@ export default function PeoplePage() {
             toast.success("Person updated");
             setEditingPerson(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update person"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update person");
+        },
     });
 
     const updateTeamMut = useMutation({
@@ -93,7 +102,10 @@ export default function PeoplePage() {
             toast.success("Team updated");
             setEditingTeam(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update team"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update team");
+        },
     });
 
     const persons: Person[] = personsQ.data?.data ?? [];

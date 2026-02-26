@@ -70,7 +70,10 @@ export default function SoftwarePage() {
             toast.success("Software created");
             setIsCreateOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create software"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create software");
+        },
     });
 
     const updateMut = useMutation({
@@ -80,7 +83,10 @@ export default function SoftwarePage() {
             toast.success("Software updated");
             setEditingSoftware(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update software"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update software");
+        },
     });
 
     const items: Software[] = data?.data ?? [];

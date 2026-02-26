@@ -58,7 +58,10 @@ export default function IntegrationsPage() {
             toast.success("Integration created");
             setIsCreateOpen(false);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create integration"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to create integration");
+        },
     });
 
     const updateMut = useMutation({
@@ -68,7 +71,10 @@ export default function IntegrationsPage() {
             toast.success("Integration updated");
             setEditingIntegration(null);
         },
-        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update integration"),
+        onError: (err) => {
+            const error = err as any;
+            toast.error(error.response?.data?.error || "Failed to update integration");
+        },
     });
 
     const items: Integration[] = data?.data ?? [];
@@ -99,7 +105,7 @@ export default function IntegrationsPage() {
                                     createMut.mutate({
                                         name: fd.get("name") as string,
                                         description: fd.get("description") as string,
-                                        integration_kind: fd.get("integration_kind") as any,
+                                        integration_kind: fd.get("integration_kind") as string,
                                         protocol: fd.get("protocol") as string,
                                         source_software_id: (fd.get("source_software_id") as string) || undefined,
                                         target_software_id: (fd.get("target_software_id") as string) || undefined,
@@ -171,7 +177,7 @@ export default function IntegrationsPage() {
                                     data: {
                                         name: fd.get("name") as string,
                                         description: fd.get("description") as string,
-                                        integration_kind: fd.get("integration_kind") as any,
+                                        integration_kind: fd.get("integration_kind") as string,
                                         protocol: fd.get("protocol") as string,
                                         source_software_id: (fd.get("source_software_id") as string) || undefined,
                                         target_software_id: (fd.get("target_software_id") as string) || undefined,
