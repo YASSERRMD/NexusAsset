@@ -23,6 +23,7 @@ export default function DatabasesPage() {
     const [engineFilter, setEngineFilter] = useState("");
     const [page, setPage] = useState(1);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [editingDb, setEditingDb] = useState<DatabaseInstance | null>(null);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -48,6 +49,16 @@ export default function DatabasesPage() {
             setIsCreateOpen(false);
         },
         onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create database"),
+    });
+
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<DatabaseInstance> }) => apiClient.put(`/databases/${id}`, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["databases"] });
+            toast.success("Database updated");
+            setEditingDb(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update database"),
     });
 
     const items: DatabaseInstance[] = data?.data ?? [];
@@ -135,6 +146,79 @@ export default function DatabasesPage() {
                 </CanAccess>
             </div>
 
+            {/* Edit Dialog */}
+            <Dialog open={!!editingDb} onOpenChange={(open) => !open && setEditingDb(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Database</DialogTitle>
+                    </DialogHeader>
+                    {editingDb && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updateMut.mutate({
+                                    id: editingDb.id,
+                                    data: {
+                                        name: fd.get("name") as string,
+                                        engine: fd.get("engine") as string,
+                                        database_name: fd.get("database_name") as string,
+                                        hostname: fd.get("hostname") as string,
+                                        port: fd.get("port") ? parseInt(fd.get("port") as string) : undefined,
+                                        cloud_provider: fd.get("cloud_provider") as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_name">System Name (ID)</Label>
+                                <Input id="edit_name" name="name" defaultValue={editingDb.name} required className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_engine">Engine</Label>
+                                    <select id="edit_engine" name="engine" defaultValue={editingDb.engine} className="w-full h-10 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                                        <option value="PostgreSQL">PostgreSQL</option>
+                                        <option value="MySQL">MySQL</option>
+                                        <option value="MongoDB">MongoDB</option>
+                                        <option value="Redis">Redis</option>
+                                        <option value="Oracle">Oracle</option>
+                                        <option value="MSSQL">MSSQL</option>
+                                        <option value="Elasticsearch">Elasticsearch</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_database_name">DB/Schema Name</Label>
+                                    <Input id="edit_database_name" name="database_name" defaultValue={editingDb.database_name || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_hostname">Hostname</Label>
+                                    <Input id="edit_hostname" name="hostname" defaultValue={editingDb.hostname || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_port">Port</Label>
+                                    <Input id="edit_port" name="port" type="number" defaultValue={editingDb.port || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_cloud_provider">Cloud / Environment</Label>
+                                <Input id="edit_cloud_provider" name="cloud_provider" defaultValue={editingDb.cloud_provider || ""} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updateMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updateMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             <div className="flex gap-3">
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -201,7 +285,12 @@ export default function DatabasesPage() {
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-1.5 justify-end">
                                             <CanAccess roles={["admin", "contributor"]}>
-                                                <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition"><Pencil className="h-4 w-4" /></button>
+                                                <button
+                                                    className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition"
+                                                    onClick={() => setEditingDb(db)}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </button>
                                             </CanAccess>
                                             {isAdmin && (
                                                 <button className="rounded-lg p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition" onClick={() => { if (confirm(`Delete ${db.name}?`)) deleteMut.mutate(db.id); }}>

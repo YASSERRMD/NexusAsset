@@ -16,6 +16,7 @@ export default function VendorsPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -38,6 +39,16 @@ export default function VendorsPage() {
             setIsCreateOpen(false);
         },
         onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create vendor"),
+    });
+
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Vendor> }) => apiClient.put(`/vendors/${id}`, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["vendors"] });
+            toast.success("Vendor updated");
+            setEditingVendor(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update vendor"),
     });
 
     const vendors: Vendor[] = data?.data ?? [];
@@ -117,6 +128,71 @@ export default function VendorsPage() {
                 </CanAccess>
             </div>
 
+            {/* Edit Dialog */}
+            <Dialog open={!!editingVendor} onOpenChange={(open) => !open && setEditingVendor(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Vendor</DialogTitle>
+                    </DialogHeader>
+                    {editingVendor && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updateMut.mutate({
+                                    id: editingVendor.id,
+                                    data: {
+                                        name: fd.get("name") as string,
+                                        display_name: fd.get("display_name") as string,
+                                        region: fd.get("region") as string,
+                                        website: fd.get("website") as string,
+                                        contact_email: fd.get("contact_email") as string,
+                                        contact_phone: fd.get("contact_phone") as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_name">Vendor ID (unique)</Label>
+                                <Input id="edit_name" name="name" defaultValue={editingVendor.name} required className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_display_name">Display Name</Label>
+                                <Input id="edit_display_name" name="display_name" defaultValue={editingVendor.display_name || ""} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_region">Region</Label>
+                                    <Input id="edit_region" name="region" defaultValue={editingVendor.region || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_website">Website URL</Label>
+                                    <Input id="edit_website" name="website" type="url" defaultValue={editingVendor.website || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_contact_email">Email</Label>
+                                    <Input id="edit_contact_email" name="contact_email" type="email" defaultValue={editingVendor.contact_email || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_contact_phone">Phone</Label>
+                                    <Input id="edit_contact_phone" name="contact_phone" defaultValue={editingVendor.contact_phone || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updateMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updateMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <input
@@ -136,7 +212,12 @@ export default function VendorsPage() {
                     <div key={v.id} className="group relative rounded-xl border border-slate-800 bg-slate-900 p-5 hover:border-slate-700 transition">
                         <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <CanAccess roles={["admin", "contributor"]}>
-                                <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button
+                                    className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"
+                                    onClick={() => setEditingVendor(v)}
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
                             </CanAccess>
                             {isAdmin && (
                                 <button className="rounded-lg p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition" onClick={() => { if (confirm(`Delete ${v.name}?`)) deleteMut.mutate(v.id); }}>

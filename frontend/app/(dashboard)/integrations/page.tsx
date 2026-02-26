@@ -33,6 +33,7 @@ export default function IntegrationsPage() {
     const [kindFilter, setKindFilter] = useState("");
     const [page, setPage] = useState(1);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [editingIntegration, setEditingIntegration] = useState<Integration | null>(null);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -58,6 +59,16 @@ export default function IntegrationsPage() {
             setIsCreateOpen(false);
         },
         onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create integration"),
+    });
+
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Integration> }) => apiClient.put(`/integrations/${id}`, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["integrations"] });
+            toast.success("Integration updated");
+            setEditingIntegration(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update integration"),
     });
 
     const items: Integration[] = data?.data ?? [];
@@ -144,6 +155,78 @@ export default function IntegrationsPage() {
                 </CanAccess>
             </div>
 
+            {/* Edit Dialog */}
+            <Dialog open={!!editingIntegration} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Integration</DialogTitle>
+                    </DialogHeader>
+                    {editingIntegration && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updateMut.mutate({
+                                    id: editingIntegration.id,
+                                    data: {
+                                        name: fd.get("name") as string,
+                                        description: fd.get("description") as string,
+                                        integration_kind: fd.get("integration_kind") as any,
+                                        protocol: fd.get("protocol") as string,
+                                        source_software_id: (fd.get("source_software_id") as string) || undefined,
+                                        target_software_id: (fd.get("target_software_id") as string) || undefined,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_name">Integration Name</Label>
+                                <Input id="edit_name" name="name" defaultValue={editingIntegration.name} required className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_description">Description</Label>
+                                <Input id="edit_description" name="description" defaultValue={editingIntegration.description || ""} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_integration_kind">Integration Kind</Label>
+                                    <select id="edit_integration_kind" name="integration_kind" defaultValue={editingIntegration.integration_kind} className="w-full h-10 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500">
+                                        <option value="api">API</option>
+                                        <option value="event">Event (Kafka/MQ)</option>
+                                        <option value="file">File Transfer (SFTP)</option>
+                                        <option value="database">Database Link</option>
+                                        <option value="webhook">Webhook</option>
+                                        <option value="sync">Data Sync</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_protocol">Protocol / Tech</Label>
+                                    <Input id="edit_protocol" name="protocol" defaultValue={editingIntegration.protocol || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_source_software_id">Source SW ID (opt)</Label>
+                                    <Input id="edit_source_software_id" name="source_software_id" defaultValue={editingIntegration.source_software_id || ""} className="bg-slate-800 border-slate-700 font-mono text-xs" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_target_software_id">Target SW ID (opt)</Label>
+                                    <Input id="edit_target_software_id" name="target_software_id" defaultValue={editingIntegration.target_software_id || ""} className="bg-slate-800 border-slate-700 font-mono text-xs" />
+                                </div>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updateMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updateMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             <div className="flex gap-3">
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -175,7 +258,12 @@ export default function IntegrationsPage() {
                     <div key={intg.id} className="group relative rounded-xl border border-slate-800 bg-slate-900 p-5 hover:border-slate-700 transition">
                         <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <CanAccess roles={["admin", "contributor"]}>
-                                <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button
+                                    className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"
+                                    onClick={() => setEditingIntegration(intg)}
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
                             </CanAccess>
                             {isAdmin && (
                                 <button className="rounded-lg p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition" onClick={() => { if (confirm(`Delete ${intg.name}?`)) deleteMut.mutate(intg.id); }}>

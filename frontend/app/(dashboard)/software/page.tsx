@@ -40,6 +40,7 @@ export default function SoftwarePage() {
     const [criticalityFilter, setCriticalityFilter] = useState("");
     const [page, setPage] = useState(1);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [editingSoftware, setEditingSoftware] = useState<Software | null>(null);
     const qc = useQueryClient();
     const { isAdmin } = useAuth();
 
@@ -70,6 +71,16 @@ export default function SoftwarePage() {
             setIsCreateOpen(false);
         },
         onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create software"),
+    });
+
+    const updateMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Software> }) => apiClient.put(`/software/${id}`, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["software"] });
+            toast.success("Software updated");
+            setEditingSoftware(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update software"),
     });
 
     const items: Software[] = data?.data ?? [];
@@ -168,6 +179,89 @@ export default function SoftwarePage() {
                 </CanAccess>
             </div>
 
+            {/* Edit Dialog */}
+            <Dialog open={!!editingSoftware} onOpenChange={(open) => !open && setEditingSoftware(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Software</DialogTitle>
+                    </DialogHeader>
+                    {editingSoftware && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updateMut.mutate({
+                                    id: editingSoftware.id,
+                                    data: {
+                                        name: fd.get("name") as string,
+                                        display_name: fd.get("display_name") as string,
+                                        description: fd.get("description") as string,
+                                        software_kind: fd.get("software_kind") as "inhouse" | "vendor",
+                                        status: fd.get("status") as any,
+                                        criticality: fd.get("criticality") as any,
+                                        version: fd.get("version") as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_name">System Name (ID)</Label>
+                                <Input id="edit_name" name="name" defaultValue={editingSoftware.name} required className="bg-slate-800 border-slate-700 font-mono text-sm" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_display_name">Display Name</Label>
+                                    <Input id="edit_display_name" name="display_name" defaultValue={editingSoftware.display_name || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_version">Version</Label>
+                                    <Input id="edit_version" name="version" defaultValue={editingSoftware.version || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_description">Description</Label>
+                                <Input id="edit_description" name="description" defaultValue={editingSoftware.description || ""} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_software_kind">Kind</Label>
+                                    <select id="edit_software_kind" name="software_kind" defaultValue={editingSoftware.software_kind} className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                        <option value="inhouse">In-house</option>
+                                        <option value="vendor">Vendor</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_status">Status</Label>
+                                    <select id="edit_status" name="status" defaultValue={editingSoftware.status} className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                        <option value="active">Active</option>
+                                        <option value="in_development">In Development</option>
+                                        <option value="deprecated">Deprecated</option>
+                                        <option value="eol">EOL</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_criticality">Criticality</Label>
+                                    <select id="edit_criticality" name="criticality" defaultValue={editingSoftware.criticality} className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 h-10">
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="critical">Critical</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updateMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updateMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             {/* Filters */}
             <div className="flex flex-wrap gap-3">
                 <div className="relative flex-1 min-w-52">
@@ -224,7 +318,10 @@ export default function SoftwarePage() {
                             {/* Actions */}
                             <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <CanAccess roles={["admin", "contributor"]}>
-                                    <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition">
+                                    <button
+                                        className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition"
+                                        onClick={() => setEditingSoftware(sw)}
+                                    >
                                         <Pencil className="h-3.5 w-3.5" />
                                     </button>
                                 </CanAccess>
