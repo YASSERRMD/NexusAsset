@@ -6,7 +6,7 @@ import { lookupsApi } from "@/lib/catalog-api";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-    Tag, Monitor, Globe, Shield, Code, Database, Layers,
+    Tag, Monitor, Globe, Shield, Code, Layers,
     Plus, Pencil, ToggleLeft, ToggleRight, ChevronRight,
 } from "lucide-react";
 

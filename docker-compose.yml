@@ -27,20 +27,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
-    command: [ "./migrate", "up" ]
-
-  db-seed:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: nexusasset_seed
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
-    environment:
-      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
-    command: [ "./seeder" ]
+      - NEXUS_DATABASE_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
+    command: [ "./migrate", "up", "db/migrations", "--seed" ]
 
   backend:
     build:
@@ -48,14 +36,14 @@ services:
       dockerfile: Dockerfile
     container_name: nexusasset_api
     depends_on:
-      db-seed:
+      db-migrate:
         condition: service_completed_successfully
     ports:
       - "8080:8080"
     environment:
       - ENV=production
-      - DB_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
-      - JWT_SECRET=supersecretjwtkeythatshouldbechangedinproduction123!
+      - NEXUS_DATABASE_URL=postgres://nexus:nexus_secret@postgres:5432/nexusasset?sslmode=disable
+      - NEXUS_JWT_SECRET=supersecretjwtkeythatshouldbechangedinproduction123!
       - LOG_LEVEL=info
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
     command: [ "./main" ]

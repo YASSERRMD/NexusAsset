@@ -16,8 +16,6 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
 # Build the migration tool executable
 RUN CGO_ENABLED=0 GOOS=linux go build -o migrate ./cmd/migrate/main.go
-# Build the seeder executable
-RUN CGO_ENABLED=0 GOOS=linux go build -o seeder ./db/seed/seed.go
 
 # Final minimal image
 FROM alpine:3.19
@@ -29,15 +27,19 @@ RUN apk add --no-cache ca-certificates bash curl
 
 # Create a non-root user
 RUN adduser -D staticuser
-USER staticuser
 
 # Copy over executables
 COPY --from=builder /app/main .
 COPY --from=builder /app/migrate .
-COPY --from=builder /app/seeder .
 COPY --from=builder /app/config.yaml .
 # We also need the migration files if we run migration on start
 COPY --from=builder /app/db/migrations ./db/migrations
+
+# Ensure permissions
+RUN chown -R staticuser:staticuser /app && \
+    chmod +x /app/main /app/migrate
+
+USER staticuser
 
 EXPOSE 8080
 

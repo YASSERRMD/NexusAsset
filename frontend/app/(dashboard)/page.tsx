@@ -51,7 +51,7 @@ interface ChartData {
 }
 
 // Simple internal component for stat cards
-function StatCard({ title, value, subtext, icon: Icon, colorClass }: any) {
+function StatCard({ title, value, subtext, icon: Icon, colorClass }: { title: string; value: string | number; subtext?: string; icon: React.ElementType; colorClass: string }) {
     return (
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5 flex flex-col items-start gap-4 hover:border-slate-700 transition">
             <div className={`p-3 rounded-lg ${colorClass}`}>
@@ -143,8 +143,8 @@ export default function DashboardPage() {
                                         <div className="w-48 bg-slate-800 h-2 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full ${c.criticality === 'critical' ? 'bg-red-500' :
-                                                        c.criticality === 'high' ? 'bg-orange-500' :
-                                                            c.criticality === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                                    c.criticality === 'high' ? 'bg-orange-500' :
+                                                        c.criticality === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
                                                     }`}
                                                 style={{ width: `${(c.count / data.total_software) * 100}%` }}
                                             />
