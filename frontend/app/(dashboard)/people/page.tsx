@@ -19,6 +19,8 @@ export default function PeoplePage() {
     const [page, setPage] = useState(1);
     const [isPersonOpen, setIsPersonOpen] = useState(false);
     const [isTeamOpen, setIsTeamOpen] = useState(false);
+    const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+    const [editingTeam, setEditingTeam] = useState<Team | null>(null);
     const qc = useQueryClient();
 
     const { isAdmin } = useAuth();
@@ -72,6 +74,26 @@ export default function PeoplePage() {
             setIsTeamOpen(false);
         },
         onError: (err: any) => toast.error(err.response?.data?.error || "Failed to create team"),
+    });
+
+    const updatePersonMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Person> }) => personsApi.update(id, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["persons"] });
+            toast.success("Person updated");
+            setEditingPerson(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update person"),
+    });
+
+    const updateTeamMut = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: Partial<Team> }) => teamsApi.update(id, data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["teams"] });
+            toast.success("Team updated");
+            setEditingTeam(null);
+        },
+        onError: (err: any) => toast.error(err.response?.data?.error || "Failed to update team"),
     });
 
     const persons: Person[] = personsQ.data?.data ?? [];
@@ -189,6 +211,104 @@ export default function PeoplePage() {
                 </CanAccess>
             </div>
 
+            {/* Edit Dialogs */}
+            <Dialog open={!!editingPerson} onOpenChange={(open) => !open && setEditingPerson(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Person</DialogTitle>
+                    </DialogHeader>
+                    {editingPerson && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updatePersonMut.mutate({
+                                    id: editingPerson.id,
+                                    data: {
+                                        full_name: fd.get("full_name") as string,
+                                        email: fd.get("email") as string,
+                                        title: fd.get("title") as string,
+                                        department: fd.get("department") as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_full_name">Full Name</Label>
+                                <Input id="edit_full_name" name="full_name" defaultValue={editingPerson.full_name} required className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_email">Email</Label>
+                                <Input id="edit_email" name="email" type="email" defaultValue={editingPerson.email} required className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_title">Job Title</Label>
+                                    <Input id="edit_title" name="title" defaultValue={editingPerson.title || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit_department">Department</Label>
+                                    <Input id="edit_department" name="department" defaultValue={editingPerson.department || ""} className="bg-slate-800 border-slate-700" />
+                                </div>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updatePersonMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updatePersonMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editingTeam} onOpenChange={(open) => !open && setEditingTeam(null)}>
+                <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader>
+                        <DialogTitle>Edit Team</DialogTitle>
+                    </DialogHeader>
+                    {editingTeam && (
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const fd = new FormData(e.currentTarget);
+                                updateTeamMut.mutate({
+                                    id: editingTeam.id,
+                                    data: {
+                                        name: fd.get("name") as string,
+                                        department: fd.get("department") as string,
+                                        team_email: fd.get("team_email") as string,
+                                    }
+                                });
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_team_name">Team Name</Label>
+                                <Input id="edit_team_name" name="name" defaultValue={editingTeam.name} required className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_team_department">Department</Label>
+                                <Input id="edit_team_department" name="department" defaultValue={editingTeam.department} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_team_email">Team Email List</Label>
+                                <Input id="edit_team_email" name="team_email" type="email" defaultValue={editingTeam.team_email || ""} className="bg-slate-800 border-slate-700" />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={updateTeamMut.isPending}
+                                className="w-full mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                            >
+                                {updateTeamMut.isPending ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             {/* Tabs */}
             <div className="flex gap-2 border-b border-slate-800">
                 {(["persons", "teams"] as const).map((t) => (
@@ -251,7 +371,11 @@ export default function PeoplePage() {
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2 justify-end">
                                             <CanAccess roles={["admin", "contributor"]}>
-                                                <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition" title="Edit">
+                                                <button
+                                                    className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition"
+                                                    title="Edit"
+                                                    onClick={() => setEditingPerson(p)}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </button>
                                             </CanAccess>
@@ -298,7 +422,11 @@ export default function PeoplePage() {
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2 justify-end">
                                             <CanAccess roles={["admin", "contributor"]}>
-                                                <button className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition" title="Edit">
+                                                <button
+                                                    className="rounded-lg p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition"
+                                                    title="Edit"
+                                                    onClick={() => setEditingTeam(t)}
+                                                >
                                                     <Pencil className="h-4 w-4" />
                                                 </button>
                                             </CanAccess>
